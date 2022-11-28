@@ -1,0 +1,75 @@
+#lang ivy1.7
+
+type peer
+type block
+
+# States
+relation prepared(P:peer)
+relation joined(P:peer)
+relation left(P:peer)
+
+# TFT relations
+relation has_sent(P:peer, B:block)
+relation holds(P:peer, B:block)
+
+# Every peer is in a single state
+relation single_state(P:peer)
+definition single_state(P) = (~(prepared(P) & joined(P)) & 
+                              ~(prepared(P) & left(P)) & 
+                              ~(joined(P) & left(P)) &
+                               (prepared(P) | joined(P) | left(P)))
+
+individual seeder:peer
+
+# Initially all peers are not left, but some are joined, some are prepared.
+# Intially a seeder holds all blocks and is joined.
+# Initially no peer has sent any block.
+
+after init {
+    # ensure single_state(P) & (exists S. (joined(S) & holds(S, B))) & ~has_sent(Q, B);
+
+    joined(P) := *;
+    joined(seeder) := true;
+    left(P) := false;
+    prepared(P) := false if joined(P) else true;
+
+    holds(P, B) := *;
+    holds(seeder, B) := true;
+
+    has_sent(P, B) := false;
+}
+
+# Sender must hold the block, receiver must not, and both are joined
+action send(p1:peer, p2:peer, b:block) = {
+    require holds(p1, b) & ~holds(p2, b) & joined(p1) & joined(p2);
+    holds(p2, b) := true;
+    has_sent(p1, b) := true;
+}
+
+# A peer can join if there is at least one other peer joined
+action join(p:peer) = {
+    require prepared(p) & (exists Q. (Q ~= p & joined(Q)));
+    prepared(p) := false;
+    joined(p) := true;
+}
+
+action leave(p:peer) = {
+    require joined(p) & (forall B. (has_sent(p, B) | (forall Q. (joined(Q) -> holds(Q, B)))));
+    joined(p) := false;
+    left(p) := true;
+}
+
+export send
+export join
+export leave
+
+invariant single_state(P)
+
+private {
+    invariant has_sent(P, B) -> holds(P, B)
+    invariant ~(has_sent(P, B) & (forall Q. (Q ~= P -> ~holds(Q, B))))
+}
+
+invariant (exists P. joined(P)) -> (forall B. (exists Q. (holds(Q, B) & joined(Q))))
+
+invariant left(P) ->  holds(P, B)
