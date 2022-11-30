@@ -1,0 +1,104 @@
+#lang ivy1.7
+
+include arith_nat
+instance nat : arith_nat
+
+
+type peer
+type block
+
+# States
+relation prepared(P:peer)
+relation joined(P:peer)
+relation left(P:peer)
+
+# TFT relations
+relation has_sent(P:peer, B:block)
+relation holds(P:peer, B:block)
+
+# Every peer is in a single state
+relation single_state(P:peer)
+definition single_state(P) = (~(prepared(P) & joined(P)) & 
+                              ~(prepared(P) & left(P)) & 
+                              ~(joined(P) & left(P)) &
+                               (prepared(P) | joined(P) | left(P)))
+
+individual seeder:peer
+function num_joined:nat
+function num_sent(B:block):nat
+function num_holds(B:block):nat
+# Initially all peers are not left, but some are joined, some are prepared.
+# Intially a seeder holds all blocks and is joined.
+# Initially no peer has sent any block.
+
+after init {
+    # ensure single_state(P) & (exists S. (joined(S) & holds(S, B))) & ~has_sent(Q, B);
+
+    joined(P) := true if P = seeder else false;
+    # joined(seeder) := true;
+    left(P) := false;
+    prepared(P) := false if joined(P) else true;
+
+    holds(P, B) := *;
+    holds(seeder, B) := true;
+
+    has_sent(P, B) := false;
+    num_sent(B) := 0;
+    num_holds(B) := 1;
+    num_joined := 1;
+}
+
+# Sender must hold the block, receiver must not, and both are joined
+action send(p1:peer, p2:peer, b:block) = {
+    require holds(p1, b) & ~holds(p2, b) & joined(p1) & joined(p2);
+    holds(p2, b) := true;
+    has_sent(p1, b) := true;
+    num_sent(b) := num_sent(b) + 1;
+    num_holds(b) := num_holds(b) + 1;
+}
+
+# A peer can join if there is at least one other peer joined
+action join(p:peer) = {
+    require prepared(p) & (exists Q. (Q ~= p & joined(Q)));
+    prepared(p) := false;
+    joined(p) := true;
+    num_holds(B) := num_holds(B) + 1 if holds(p,B) else num_holds(B);
+    num_joined := num_joined + 1;
+}
+
+action leave(p:peer) = {
+    require joined(p);
+    require forall B. (has_sent(p, B) | (forall Q. (joined(Q) -> (holds(Q, B) & ~has_sent(Q, B)))));
+    joined(p) := false;
+    left(p) := true;
+    num_sent(B) := num_sent(B) - 1 if has_sent(p,B) else num_sent(B);
+    num_holds(B) := num_holds(B) - 1 if holds(p,B) else num_holds(B);
+    num_joined := num_joined - 1;
+}
+
+export send
+export join
+export leave
+
+invariant single_state(P)
+
+# invariant num_joined >= num_sent(B)
+invariant has_sent(P, B) -> holds(P, B)
+invariant prepared(P) -> ~has_sent(P,B)
+invariant (joined(P) & joined(Q) & holds(P, B) & holds(Q, B) & P ~= Q)  -> num_holds(B) > 1
+invariant (exists P. joined(P)) -> num_holds(B) > 0
+# invariant (exists P. has_sent(P,B) & joined(P)) -> num_sent(B) > 0
+# invariant (exists P. holds(P,B) & joined(P)) -> num_holds(B) > 0
+# invariant (joined(Q) -> (holds(Q, B) & ~has_sent(Q, B))) -> num_sent(B) < num_holds(B)
+# invariant (exists P. joined(P)) -> num_sent(B) <= num_holds(B)
+
+# private {
+    # invariant has_sent(P, B) -> holds(P, B)
+    
+#     # Godel class with equality: undecidable!
+    # invariant forall P,B. (has_sent(P, B) & joined(P) -> num_holds(B) > 1)
+# }
+
+# invariant (exists P. joined(P)) -> (forall B. (exists Q. (holds(Q, B) & joined(Q))))
+
+# invariant left(P) ->  holds(P, B)

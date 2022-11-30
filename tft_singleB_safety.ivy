@@ -1,0 +1,79 @@
+#lang ivy1.7
+
+type peer
+# type block
+
+# States
+# relation prepared(P:peer)
+relation joined(P:peer)
+relation left(P:peer)
+
+# TFT relations
+relation has_sent(P:peer)
+relation holds(P:peer)
+
+# Every peer is in a single state
+# relation single_state(P:peer)
+# definition single_state(P) = (~(prepared(P) & joined(P)) & 
+#                               ~(prepared(P) & left(P)) & 
+#                               ~(joined(P) & left(P)) &
+#                                (prepared(P) | joined(P) | left(P)))
+
+individual seeder:peer
+
+# Initially all peers are not left, but some are joined, some are prepared.
+# Intially a seeder holds all blocks and is joined.
+# Initially no peer has sent any block.
+
+after init {
+    # ensure single_state(P) & (exists S. (joined(S) & holds(S, B))) & ~has_sent(Q, B);
+
+    joined(P) := P = seeder;
+    left(P) := false;
+    # prepared(P) := false if joined(P) else true;
+
+    holds(P) := *;
+    holds(seeder) := true;
+
+    has_sent(P) := false;
+}
+
+# Sender must hold the block, receiver must not, and both are joined
+action send(p1:peer, p2:peer) = {
+    require holds(p1) & ~holds(p2) & joined(p1) & joined(p2);
+    holds(p2) := true;
+    has_sent(p1) := true;
+}
+
+# A peer can join if there is at least one other peer joined
+action join(p:peer) = {
+    require ~joined(p) & ~left(p) & (exists Q. joined(Q));
+    # prepared(p) := false;
+    holds(p) := *;
+    joined(p) := true;
+}
+
+action leave(p:peer) = {
+    require joined(p) & ~left(p);
+    require has_sent(p) | (forall Q. (joined(Q) -> (holds(Q) & ~has_sent(Q))));
+    joined(p) := false;
+    left(p) := true;
+}
+
+export send
+export join
+export leave
+
+invariant ~(joined(P) & left(P))
+
+private {
+    invariant has_sent(P) -> holds(P)
+    invariant (~joined(P) & ~left(P) -> ~has_sent(P))
+    # invariant (exists P. joined(P)) & (joined(Q) -> ~has_sent(Q)) -> (joined(R) -> holds(R))
+    # Godel class with equality: undecidable!
+    invariant forall P. joined(P) & has_sent(P) -> (exists Q. joined(Q) & ~has_sent(Q) & holds(Q))
+}
+
+# invariant ((exists P. joined(P)) -> (exists Q. (holds(Q) & joined(Q)))) | (has_sent(R) & joined(R) -> (exists S. R ~= S & joined(S) & holds(S)))
+
+invariant left(P) ->  holds(P)
