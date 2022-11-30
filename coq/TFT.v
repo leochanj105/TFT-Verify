@@ -34,77 +34,13 @@ Ltac bdestruct X :=
 
 Ltac inv H := inversion H; clear H; subst.
 
-Fixpoint count (h:hist) : nat :=
-  match h with
-  | [] => 0
-  | (_, true)::t => (count t) + 1
-  | (_, false)::t => (count t) - 1
-  end.
-
-Example exp1:
-  count [] = 0 . 
-Proof.
-  simpl. auto.
-Qed.
-  
-Example exp2:
-  count (("p1", false)::(("p1", true):: [])) = 0.
-Proof.
-  simpl. auto.
-Qed.
-
-Example exp3:
-  count (("p2", true)::(("p1", true):: [])) = 2.
-Proof.
-  simpl. auto.
-Qed.
-
 Fixpoint get (h:hist) (p:peer) : bool :=
   match h with
   | [] => false
   | (p', val)::t => if eqb_string p' p then val else get t p 
   end.
 
-Example exp4:
-  get (("p2", true)::(("p1", true):: [])) "p2" = true.
-Proof.
-  simpl. auto.
-Qed.
 
-Example exp5:
-  get (("p1", false)::(("p1", true):: [])) "p1" = false.
-Proof.
-  simpl. auto.
-Qed.
-
-Example exp6:
-  get [] "p3" = false.
-Proof.
-  simpl. auto.
-Qed.
-
-(* Theorem exists_nonzero: forall h,
-  (count h) > 0 -> (exists p, (get h p) = true).
-Proof.
-  intros.
-  induction h.
-  - inversion H.
-  - destruct a.
-    destruct b.
-    + exists p. simpl. rewrite <- eqb_string_refl. auto.
-    + simpl in H. apply gt_n_S in H.
-      assert(H1: forall x, S (x - 1) > 1 -> x > 0).
-      intros. lia.
-      apply H1 in H. apply IHh in H. destruct H as [pe H2].
-      exists pe.  
-*)
-
-
-Inductive event : Type :=
-  | ESend (p1 p2 : peer)
-  | EJoinWithout (p : peer)
-  | EJoinWith (p : peer)
-  | ELeave (p : peer).
 
 Definition join_hist := hist.
 Definition left_hist := hist.
@@ -120,20 +56,7 @@ Definition eqb_bool (b1 b2:bool) : bool :=
     | false, false => true
   end.
 
-Definition update_state (s:state) (e : event) : state :=
-  match s with
-  | (joined, has_left, has_sent, holds) =>
-    match e with
-      | ESend p1 p2 =>
-        (joined, has_left, ((p1, true)::has_sent), ((p2, true)::holds)) (* Check if already sent?? *)
-      | EJoinWithout p => ( ((p, true)::joined), has_left, has_sent, ((p, false)::holds))
-      | EJoinWith p => ( ((p, true)::joined), has_left, has_sent, ((p, true)::holds))
-      | ELeave p => ( ((p, false)::joined), 
-                      ((p, true)::has_left), 
-                        has_sent, 
-                        holds )
-    end
-  end.
+
 Definition joined (s:state) : join_hist := 
   match s with
   | (h, _, _, _) => h
@@ -194,32 +117,7 @@ Inductive multi {X : Type} (R : relation X) : relation X :=
                     multi R x y ->
                     multi R x z.
 
-Compute update_state (("b", true)::[],[],[],[]) (EJoinWithout "a").
-Example test1:
-  (("b", true)::[],[],[],[]) --> ((("a",true)::(("b", true)::[])), [],[],[("a", false)]).
-Proof.
-  apply A_Join_Without. 
-  split.
-  - simpl. auto.
-  - split. 
-    + simpl. auto.
-    + exists "b". simpl. auto.
-Qed.
-
 Notation " st '-->*' st' " := (multi action st st') (at level 40).
-
-Example test2:
-  (("b", true)::[],[],[],[]) -->* ((("a",true)::(("b", true)::[])), [],[],[("a", false)]).
-Proof.
-  apply multi_step with (("b", true)::[],[],[],[]).
-  apply A_Join_Without. 
-  split.
-  - simpl. auto.
-  - split. 
-    + simpl. auto.
-    + exists "b". simpl. auto.
-  - apply multi_refl.
-Qed.
 
 Definition initial (st: state) :=
   (forall p, get (has_left st) p = false /\ get (has_sent st) p = false) /\

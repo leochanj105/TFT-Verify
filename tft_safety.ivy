@@ -70,7 +70,7 @@ private {
     invariant has_sent(P, B) -> holds(P, B)
     invariant (~joined(P) & ~left(P) -> ~has_sent(P, B))
 
-    # Godel class with equality: undecidable if equality is here !!
+    # Godel class with equality: undecidable under EPR solver if equality is here !!
     invariant joined(P) & has_sent(P, B) -> (exists Q. joined(Q) & ~has_sent(Q, B) & holds(Q, B))
 }
 
