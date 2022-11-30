@@ -28,7 +28,8 @@ individual seeder:peer
 after init {
     # ensure single_state(P) & (exists S. (joined(S) & holds(S, B))) & ~has_sent(Q, B);
 
-    joined(P) := P = seeder;
+    joined(P) := *;
+    joined(seeder) := true;
     left(P) := false;
     # prepared(P) := false if joined(P) else true;
 
@@ -69,11 +70,12 @@ invariant ~(joined(P) & left(P))
 private {
     invariant has_sent(P) -> holds(P)
     invariant (~joined(P) & ~left(P) -> ~has_sent(P))
-    # invariant (exists P. joined(P)) & (joined(Q) -> ~has_sent(Q)) -> (joined(R) -> holds(R))
-    # Godel class with equality: undecidable!
-    invariant forall P. joined(P) & has_sent(P) -> (exists Q. joined(Q) & ~has_sent(Q) & holds(Q))
+   
+    # Godel class with equality: undecidable if there is equality!!
+    invariant joined(P) & has_sent(P) -> (exists Q. joined(Q) & ~has_sent(Q) & holds(Q))
+
 }
 
-# invariant ((exists P. joined(P)) -> (exists Q. (holds(Q) & joined(Q)))) | (has_sent(R) & joined(R) -> (exists S. R ~= S & joined(S) & holds(S)))
+invariant ((exists P. joined(P)) -> (exists Q. (holds(Q) & joined(Q)))) 
 
 invariant left(P) ->  holds(P)
