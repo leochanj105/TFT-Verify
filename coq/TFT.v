@@ -220,7 +220,6 @@ Proof.
 Qed.
 
 Definition remaining_holds_inv (st: state) :=
-(*  (exists p, get (joined st) p = true) -> count (holds st) > count (has_sent st).*)
     forall p, 
     (get (has_sent st) p = true /\ get (joined st) p = true) -> 
     (exists q, get (holds st) q = true /\ 
