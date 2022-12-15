@@ -9,6 +9,7 @@ To verify safety, run:
 Coq proof is in Coq/TFT.v.
 
 To verify finite-state liveness, run 
+
 `python liveness/bmc.py [NUM_PEERS]`
 
 where NUM_PEERS stands for the number of peers for BMC.
